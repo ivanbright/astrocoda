@@ -130,7 +130,7 @@ affect request latency.
 ### 1. Prepare the environment
 
 ```bash
-git clone <your-repo> astrocoda
+git clone https://github.com/ivanbright/astrocoda.git astrocoda
 cd astrocoda
 python bootstrap.py
 ```

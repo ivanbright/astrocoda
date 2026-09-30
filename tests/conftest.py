@@ -9,12 +9,30 @@ external dependency the routes touch is replaced with a fake via
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+
+# `app.core.config` builds `Settings` at import time and six of its fields are
+# required, so importing anything from `app` raises on a machine with no .env.
+# Seed throwaway values first so `git clone && pytest` works with no setup.
+#
+# setdefault, never assignment: a value already exported in the environment
+# (CI, a container) always wins. These strings are never transmitted anywhere,
+# because the fixtures below replace every external dependency.
+for _var, _value in {
+    "POSTGRES_URI": "postgresql+asyncpg://astrocoda:astrocoda@127.0.0.1:5432/astrocoda",
+    "REDIS_URI": "redis://127.0.0.1:6379",
+    "OPENAI_API_KEY": "test-key-never-sent",
+    "QDRANT_URL": "http://127.0.0.1:6333",
+    "STRIPE_WEBHOOK_SECRET": "whsec_test_never_used",
+    "SECRET_KEY": "test-secret-key-never-used-0123456789abcdef",
+}.items():
+    os.environ.setdefault(_var, _value)
 
 from app.api.v1.auth import get_current_user
 from app.api.v1.pipelines import get_arq_pool

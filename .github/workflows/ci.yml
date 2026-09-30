@@ -71,4 +71,9 @@ jobs:
         run: docker build -t astrocoda:ci .
 
       - name: Compose config is valid
-        run: docker compose config --quiet
+        # docker-compose.yml marks the provider credentials as required, so
+        # interpolation needs a .env to exist. The example file is enough:
+        # this validates the schema and wiring, not real credentials.
+        run: |
+          cp .env.example .env
+          docker compose config --quiet

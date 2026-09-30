@@ -6,7 +6,7 @@ change is that it stays working.
 ## Getting set up
 
 ```bash
-git clone <your-fork> astrocoda
+git clone https://github.com/ivanbright/astrocoda.git astrocoda
 cd astrocoda
 python bootstrap.py          # writes .env with a generated SECRET_KEY
 make setup                   # same thing
