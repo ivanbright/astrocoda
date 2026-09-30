@@ -1,0 +1,93 @@
+# Publishes the CLI to PyPI using Trusted Publishing (OIDC).
+#
+# There is no API token anywhere in this repository. PyPI verifies a short-lived
+# OIDC token that it minted for this exact repository, workflow and environment,
+# so nothing long-lived can leak and no credential is stored in git.
+#
+# The filename of this file matters: the PyPI trusted publisher is configured
+# with "Workflow name: workflow.yml" and PyPI matches on it exactly.
+#
+# First publish of an already-created release: run this from the Actions tab
+# (workflow_dispatch), or re-publish the release.
+name: Publish CLI to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Validate the distribution without uploading"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    # Must match the "Environment name" configured on the PyPI publisher.
+    environment: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      # Required: this is what lets Actions mint the OIDC token PyPI verifies.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade build twine
+
+      - name: Build sdist and wheel
+        working-directory: cli
+        run: |
+          python -m build
+          python -m twine check dist/*
+
+      - name: Refuse a version that disagrees with the release tag
+        if: github.event_name == 'release'
+        working-directory: cli
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version="$(python -c 'import tomllib,pathlib;print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::Release tag is $tag_version but cli/pyproject.toml says $pkg_version"
+            exit 1
+          fi
+          echo "Version $pkg_version matches tag $GITHUB_REF_NAME"
+
+      - name: Show what will be uploaded
+        run: ls -l cli/dist
+
+      - name: Upload to PyPI
+        if: ${{ !inputs.dry-run }}
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: cli/dist
+
+      - name: Verify the published version resolves
+        if: ${{ !inputs.dry-run }}
+        env:
+          PACKAGE: astrocoda-cli
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.error, urllib.request
+          pkg, version = os.environ["PACKAGE"], "0.1.0"
+          url = f"https://pypi.org/pypi/{pkg}/json"
+          for attempt in range(30):
+              try:
+                  with urllib.request.urlopen(url, timeout=20) as r:
+                      data = json.load(r)
+                  print(f"Published: {pkg} {data['info']['version']}")
+                  break
+              except urllib.error.HTTPError as e:
+                  if e.code != 404 or attempt == 29:
+                      raise
+                  time.sleep(10)
+          else:
+              print("::warning::Not visible on PyPI yet; the index may be lagging.")
+          PY
