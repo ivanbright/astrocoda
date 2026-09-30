@@ -27,10 +27,10 @@
     "Makefile": "3fca029fc2043da12435dd75ec26eeeb8d534a8e66db99b54c4fa044fb5a4374",
     "pyproject.toml": "6bd82b636c92b77a310027d6c4dd84107a5f2a3a78a89efae47a201a0a5aebb0",
     "README.md": "ee8be86ee2f3f9b95f7a32ad4283a2b7f526669b9d86f5214d18133e10bac937",
-    "requirements-dev.txt": "be478f220aadd1e48204af2677f707e3a7adfca60c7fc625ed2e703647a6debc",
+    "requirements-dev.txt": "0db27b0534c91345cbb33ec69b8222d5c9168269292b336c537260973c78bf0f",
     "requirements.txt": "9f288b0441b7d7f39f83a6aea4c18dc7508ca285fc8322e286b6d90dd7715efd",
     "SECURITY.md": "b5e8651aaa1d707bc1813c27b12752605bc1b3fcd999d640498d074c70bd0a24",
     "wheels/README.md": "fed4bdff869cf9ff2b13832fc530b70ee998e5eabe6c786c7a68fb99fb259e01"
   },
-  "signature": "dfKJJyiwsXERt7zMIXrXzJZqodEDrpPODz6_29ArSZjg3M_4guVYWI_XWMv1gU3EkiZR1I-QLv4Pz2giedWjAA"
+  "signature": "NC8m2PL7ZnzgWwTRStKqiwCEghnFImT7MO8VNJbX66Ktgq3smWXdt-zd2b9wLjheXqBfXPNl-vBXlKc2SwLaBA"
 }

@@ -9,3 +9,9 @@
 -r requirements.txt
 
 pytest>=8.0.0
+
+# tests/test_cli.py exercises the CLI package, which declares this as its only
+# runtime dependency (see cli/pyproject.toml). pyproject.toml puts ./cli on the
+# pytest path, so the package itself needs no install -- but its dependency does,
+# and without this the suite only passes on a machine that happens to have it.
+cryptography>=42.0
