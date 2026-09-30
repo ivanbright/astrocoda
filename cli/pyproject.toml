@@ -1,6 +1,6 @@
 [project]
 name = "astrocoda-cli"
-version = "0.1.0"
+version = "0.1.1"
 description = "Scaffold an Astrocoda pipeline project from a signed, verified release"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,6 +30,12 @@ Funding = "https://github.com/sponsors/ivanbright"
 
 [project.scripts]
 astrocoda = "astrocoda.cli:main"
+# uv resolves `uvx <name>` by looking for an executable called <name>. Without
+# this alias `uvx astrocoda-cli init` fails even though the package is on PyPI,
+# because the only entry point is `astrocoda`. Same reason create-next-app ships
+# a create-next-app binary. The alias costs nothing and keeps the short command
+# working for anyone who assumes it.
+astrocoda-cli = "astrocoda.cli:main"
 
 [build-system]
 requires = ["setuptools>=77"]

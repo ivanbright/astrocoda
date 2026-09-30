@@ -75,14 +75,20 @@ jobs:
           PACKAGE: astrocoda-cli
         run: |
           python - <<'PY'
-          import json, os, time, urllib.error, urllib.request
-          pkg, version = os.environ["PACKAGE"], "0.1.0"
+          import json, os, time, urllib.error, urllib.request, tomllib, pathlib
+          pkg = os.environ["PACKAGE"]
+          version = tomllib.loads(
+              pathlib.Path("cli/pyproject.toml").read_text(encoding="utf-8")
+          )["project"]["version"]
           url = f"https://pypi.org/pypi/{pkg}/json"
           for attempt in range(30):
               try:
                   with urllib.request.urlopen(url, timeout=20) as r:
                       data = json.load(r)
-                  print(f"Published: {pkg} {data['info']['version']}")
+                  live = data["info"]["version"]
+                  print(f"Published: {pkg} {live}")
+                  if live != version:
+                      print(f"::warning::PyPI serves {live}, this build is {version}")
                   break
               except urllib.error.HTTPError as e:
                   if e.code != 404 or attempt == 29:
