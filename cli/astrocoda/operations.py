@@ -3,7 +3,11 @@
 Every gated command verifies the stored license *locally* via its digital
 signature before doing any work.  ``init`` additionally verifies the template
 against the seller's signed manifest (supply-chain check) before copying a file.
-There is no network and no server.
+
+``login``, ``status``, ``logout`` and ``up`` never touch the network.  ``init``
+does, and only to download a release it then verifies against the same embedded
+public key -- see :mod:`astrocoda.fetch`.  There is no server and no account
+check beyond the locally verified license key.
 """
 
 from __future__ import annotations
@@ -13,7 +17,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from astrocoda.config import DEFAULT_TEMPLATE, PUBLIC_KEY_PATH
+from astrocoda import __version__
+from astrocoda.config import EXCLUDE, PUBLIC_KEY_PATH
+from astrocoda.fetch import ReleaseFetchError, fetch_release
 from astrocoda.license_key import LicenseKeyError, load_public_key, verify_key
 from astrocoda.manifest import TemplateIntegrityError, copy_verified, verify_template
 
@@ -68,14 +74,44 @@ def _copy_tree(source: Path, target: Path) -> None:
     shutil.copytree(source, target, ignore=ignored)
 
 
-def run_init(target: str, source: str | None = None) -> None:
-    """Scaffold a fresh Astrocoda project from a signed template."""
-    source_path = Path(source).resolve() if source else DEFAULT_TEMPLATE
-    target_path = Path(target).resolve()
+def run_init(
+    target: str,
+    source: str | None = None,
+    *,
+    version: str | None = None,
+    offline: bool = False,
+    release_base_url: str | None = None,
+) -> None:
+    """Scaffold a fresh Astrocoda project from a signed template.
 
-    if not source_path.exists():
-        print(f"[x] Template not found at {source_path}")
-        raise SystemExit(1)
+    With no ``source`` the template is downloaded from the published release,
+    cached, and signature-checked -- so ``astrocoda init <name>`` is the whole
+    install.  ``offline`` forbids the network and falls back to a release already
+    in the cache.
+    """
+    public_key = load_public_key(PUBLIC_KEY_PATH.read_bytes())
+
+    if source:
+        source_path = Path(source).resolve()
+        if not source_path.exists():
+            print(f"[x] Template not found at {source_path}")
+            raise SystemExit(1)
+    else:
+        wanted = version or __version__
+        print(f"[i] Fetching signed release {wanted}")
+        try:
+            source_path = fetch_release(
+                wanted,
+                public_key,
+                offline=offline,
+                base_url=release_base_url,
+            )
+        except ReleaseFetchError as exc:
+            print(f"[x] {exc}")
+            raise SystemExit(1) from exc
+        print(f"[ok] Release {wanted} verified against the seller signature")
+
+    target_path = Path(target).resolve()
 
     if target_path.exists():
         print(f"[x] {target_path} already exists. Choose another name or remove it.")
@@ -85,7 +121,6 @@ def run_init(target: str, source: str | None = None) -> None:
 
     # Supply-chain gate: the tree must match the seller's signed manifest.
     try:
-        public_key = load_public_key(PUBLIC_KEY_PATH.read_bytes())
         files = verify_template(public_key, source_path)
     except (LicenseKeyError, TemplateIntegrityError, OSError) as exc:
         print(f"[x] Template integrity check failed: {exc}")

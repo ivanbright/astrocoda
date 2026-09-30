@@ -74,7 +74,13 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
     print(f"[i] Licensed to {session.email} ({session.plan})")
     try:
-        run_init(args.name, source=args.source)
+        run_init(
+            args.name,
+            source=args.source,
+            version=args.version,
+            offline=args.offline,
+            release_base_url=args.release_base_url,
+        )
     except SystemExit as exc:
         return int(exc.code or 1)
     return 0
@@ -106,7 +112,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_init = subparsers.add_parser("init", help="Scaffold a new Astrocoda project")
     p_init.add_argument("name", help="Target project directory")
-    p_init.add_argument("--source", default=None, help="Path to the template (defaults to bundled)")
+    p_init.add_argument(
+        "--source",
+        default=None,
+        help="Scaffold from a local template instead of downloading one",
+    )
+    p_init.add_argument(
+        "--version",
+        dest="version",
+        default=None,
+        help="Release to install (default: the CLI's own version)",
+    )
+    p_init.add_argument(
+        "--offline",
+        action="store_true",
+        help="Never download; use a release already in the local cache",
+    )
+    p_init.add_argument(
+        "--release-url",
+        dest="release_base_url",
+        default=None,
+        help="Override the release base URL (must contain '{version}')",
+    )
     p_init.set_defaults(handler=cmd_init)
 
     p_up = subparsers.add_parser("up", help="Start the full stack with docker compose")
