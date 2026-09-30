@@ -39,9 +39,15 @@ class TemplateIntegrityError(Exception):
 
 
 def _canonical(payload: dict) -> bytes:
-    return json.dumps(
-        payload["files"], sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    """Canonical bytes covered by the manifest signature.
+
+    Everything except the ``signature`` field itself is signed, so ``schema``
+    and ``version`` cannot be edited without invalidating the signature.  This
+    previously covered only ``files``, which left the other top-level fields
+    authenticated by nothing but a later consistency check.
+    """
+    body = {key: value for key, value in payload.items() if key != "signature"}
+    return json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -100,9 +106,9 @@ def write_signed_manifest(
     )
     out = root / MANIFEST_NAME
     # newline="\n" so the manifest is byte-identical whether it is signed on
-    # Windows or Linux. The signature covers a canonical re-serialisation of
-    # `files` rather than these bytes, so this is about reproducible output
-    # rather than correctness.
+    # Windows or Linux. The signature is over a canonical re-serialisation of
+    # the manifest rather than these exact bytes, so this is about reproducible
+    # output rather than correctness.
     out.write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="\n")
     return out
 
