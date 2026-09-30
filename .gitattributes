@@ -1,0 +1,24 @@
+# Normalise line endings to LF in the repository and in every checkout.
+#
+# This is not cosmetic. The release manifest signs a sha256 of every file, so a
+# checkout that rewrites line endings produces bytes the signature does not
+# cover, and `astrocoda init` fails with a hash mismatch that looks like
+# tampering. Pinning LF keeps the signed hashes valid on every platform,
+# including Windows contributors with core.autocrlf=true.
+* text=auto eol=lf
+
+# Binaries must never be line-ending translated. The *.whl rule matters
+# specifically: wheels are cached into ./wheels for offline Docker builds, and a
+# mangled wheel fails the image build rather than a test.
+*.whl   binary
+*.zip   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.pem   text eol=lf
+
+# Keep generated and vendored paths out of language statistics and diffs.
+wheels/*.whl linguist-vendored

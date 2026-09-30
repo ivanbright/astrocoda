@@ -1,0 +1,53 @@
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python bytecode and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local data
+*.sqlite3
+*.log
+qdrant_storage/
+
+# Signing keys never belong in this repository. The seller's private key lives
+# in a separate workspace; this is a second line of defence if one is ever
+# copied in by mistake.
+keys/
+
+# Cached build wheels are local artifacts, but wheels/README.md must be
+# committed: the Dockerfile does `COPY wheels ./wheels` and the build fails
+# outright if the directory is missing from a fresh clone.
+wheels/*
+!wheels/README.md

@@ -1,0 +1,11 @@
+# ---------------------------------------------------------------------------
+# Astrocoda - Development dependencies
+#
+#   pip install -r requirements-dev.txt
+#
+# Adds test tooling on top of the runtime requirements. Kept separate so the
+# runtime image (requirements.txt) stays lean.
+# ---------------------------------------------------------------------------
+-r requirements.txt
+
+pytest>=8.0.0

@@ -1,0 +1,163 @@
+# ---------------------------------------------------------------------------
+# Astrocoda - full local stack.
+#
+#   docker compose up --build
+#
+# Brings up PostgreSQL, Redis, Qdrant, the API (web) and the ARQ worker.
+# ---------------------------------------------------------------------------
+name: astrocoda
+
+x-app-environment: &app-environment
+  POSTGRES_URI: postgresql+asyncpg://${POSTGRES_USER:-astrocoda}:${POSTGRES_PASSWORD:-astrocoda_dev_password}@postgres:5432/${POSTGRES_DB:-astrocoda}
+  REDIS_URI: redis://redis:6379
+  QDRANT_URL: http://qdrant:6333
+  QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set in your .env file}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_replace_me_with_your_stripe_secret}
+  SECRET_KEY: ${SECRET_KEY:-change_me_to_a_random_string_of_at_least_32_chars}
+  ENVIRONMENT: ${ENVIRONMENT:-local}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+  OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+  EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+  CHUNK_SIZE: ${CHUNK_SIZE:-1000}
+  VECTOR_COLLECTION_NAME: ${VECTOR_COLLECTION_NAME:-astrocoda_chunks}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+
+x-app-service: &app-service
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file:
+    - path: .env
+      required: false
+  environment: *app-environment
+  restart: unless-stopped
+  networks:
+    - astrocoda
+
+services:
+  # -------------------------------------------------------------------------
+  # Relational database - structured extraction cache and execution log
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: astrocoda-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-astrocoda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-astrocoda_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-astrocoda}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-astrocoda} -d ${POSTGRES_DB:-astrocoda}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - astrocoda
+
+  # -------------------------------------------------------------------------
+  # Message broker backing the ARQ queue
+  # -------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: astrocoda-redis
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - astrocoda
+
+  # -------------------------------------------------------------------------
+  # Vector database - cosine similarity over 1536-dim embeddings
+  # -------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: astrocoda-qdrant
+    ports:
+      - "${QDRANT_HTTP_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-}
+      QDRANT__LOG_LEVEL: ${QDRANT_LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - astrocoda
+
+  # -------------------------------------------------------------------------
+  # API - validates, bills, and returns 202 Accepted instantly
+  # -------------------------------------------------------------------------
+  web:
+    <<: *app-service
+    container_name: astrocoda-web
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --proxy-headers
+      --forwarded-allow-ips "*"
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
+  # -------------------------------------------------------------------------
+  # Worker - chunk -> embed -> extract -> Qdrant + PostgreSQL
+  # -------------------------------------------------------------------------
+  worker:
+    <<: *app-service
+    container_name: astrocoda-worker
+    command: ["arq", "app.workers.tasks.WorkerSettings"]
+    environment:
+      <<: *app-environment
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q 'app.workers.tasks.WorkerSettings' /proc/1/cmdline || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      web:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+
+networks:
+  astrocoda:
+    driver: bridge
