@@ -1,13 +1,15 @@
 """High level operations performed by ``astrocoda`` commands.
 
-Every gated command verifies the stored license *locally* via its digital
-signature before doing any work.  ``init`` additionally verifies the template
-against the seller's signed manifest (supply-chain check) before copying a file.
+No command is gated.  ``init`` downloads the published release and verifies it
+against the seller's signed manifest before copying a single file, which is the
+supply-chain check that matters: the bytes landing on a user's disk are provably
+the ones the seller signed.  The optional email opt-in lives in
+:mod:`astrocoda.identify` and cannot affect the outcome.
 
-``login``, ``status``, ``logout`` and ``up`` never touch the network.  ``init``
-does, and only to download a release it then verifies against the same embedded
-public key -- see :mod:`astrocoda.fetch`.  There is no server and no account
-check beyond the locally verified license key.
+:func:`require_license` is retained but dormant.  The Ed25519 licence-key format
+in :mod:`astrocoda.license_key` is intact and still exercised by the manifest
+code, so a paid tier can be reintroduced without redoing the crypto; it is simply
+not called on any user-facing path today.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from astrocoda import __version__
-from astrocoda.config import EXCLUDE, PUBLIC_KEY_PATH
+from astrocoda.config import DEFAULT_TEMPLATE_VERSION, EXCLUDE, PUBLIC_KEY_PATH
 from astrocoda.fetch import ReleaseFetchError, fetch_release
 from astrocoda.license_key import LicenseKeyError, load_public_key, verify_key
 from astrocoda.manifest import TemplateIntegrityError, copy_verified, verify_template
@@ -51,7 +53,12 @@ def _load_license_key() -> str:
 
 
 def require_license(key_factory=_load_license_key) -> SessionInfo:
-    """Re-verify the stored license key signature locally; fail closed."""
+    """Re-verify the stored license key signature locally; fail closed.
+
+    Dormant: nothing on a user-facing path calls this while the boilerplate is
+    free.  Kept so a paid tier can be switched back on without redoing the
+    signing format.
+    """
     key = key_factory()
     try:
         public_key = load_public_key(PUBLIC_KEY_PATH.read_bytes())
@@ -97,7 +104,7 @@ def run_init(
             print(f"[x] Template not found at {source_path}")
             raise SystemExit(1)
     else:
-        wanted = version or __version__
+        wanted = version or DEFAULT_TEMPLATE_VERSION
         print(f"[i] Fetching signed release {wanted}")
         try:
             source_path = fetch_release(

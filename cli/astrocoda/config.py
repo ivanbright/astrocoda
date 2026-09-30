@@ -59,9 +59,38 @@ RELEASE_BASE_URL: str = os.environ.get(
     "https://github.com/ivanbright/astrocoda/releases/download/v{version}/astrocoda-{version}.zip",
 )
 
+#: Which signed template release a fresh ``init`` scaffolds from.
+#:
+#: This is *not* the CLI's own version. The two move independently: a CLI patch
+#: that only fixes a bug needs no new template, and shipping a 0.3.0 CLI should
+#: not silently hand everyone a different boilerplate. Bumping this means
+#: publishing a new signed release and updating RELEASE_BASE_URL's version
+#: segment, so it is a deliberate act rather than a side effect of a version bump.
+DEFAULT_TEMPLATE_VERSION: str = os.environ.get(
+    "ASTROCODA_TEMPLATE_VERSION",
+    "0.1.0",
+)
+
 #: Downloaded releases are cached here and reused, so scaffolding a second
 #: project does not hit the network again.
 TEMPLATE_CACHE_DIR: Path = CREDENTIALS_DIR / "templates"
+
+#: Where the optional email opt-in is POSTed. This is a courtesy, not a gate:
+#: the boilerplate is MIT licensed and downloads whether or not a reply is ever
+#: sent, and a failure here is swallowed. Point ASTROCODA_OPTIN_URL at your own
+#: host to collect addresses yourself, or set ASTROCODA_NO_EMAIL=1 to disable the
+#: question entirely.
+OPTIN_ENDPOINT: str = os.environ.get(
+    "ASTROCODA_OPTIN_URL",
+    "https://astrocoda.dev/v1/subscribe",
+)
+
+#: Where ``astrocoda optout`` sends the removal. Defaults to the sibling route of
+#: the opt-in so a self-hosted host needs only one override.
+OPTIN_UNSUBSCRIBE_ENDPOINT: str = os.environ.get(
+    "ASTROCODA_UNSUBSCRIBE_URL",
+    OPTIN_ENDPOINT.replace("/v1/subscribe", "/v1/unsubscribe"),
+)
 
 #: Files and directories never copied into an initialised project.
 #:

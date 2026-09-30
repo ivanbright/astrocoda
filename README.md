@@ -66,22 +66,22 @@ paying for. The MIT licence above still governs the code either way.
 ### How the CLI verifies things offline
 
 `cli/` is a small, independently useful tool: it authenticates a template
-against a signed manifest, and verifies licences locally. It is MIT licensed,
-stands alone, and contains none of the product.
+against a signed manifest. It is MIT licensed, stands alone, and contains none
+of the product.
 
 ```
-buyer:  pip install ./cli
-buyer:  astrocoda login <signed-key-string>   # verify signature locally, store
-buyer:  astrocoda init <name>                 # verify template vs signed manifest, scaffold
-buyer:  astrocoda up                          # re-verify locally, docker compose up
+buyer:  uvx astrocoda-cli init <name>   # verify template vs signed manifest, scaffold
+buyer:  astrocoda up                    # docker compose up
 ```
 
-The key is `astrocoda_<base64url(payload)>.<base64url(signature)>`; the payload
-carries `email`, `plan` and `exp`, and the signature binds them. The CLI holds
-only the **public** half of the keypair.
+There is no account, no activation call and nothing to log in to. During `init`
+the CLI asks once whether you mind sharing an email for update news. The answer
+is optional in both directions: declining sends nothing at all, and the scaffold
+is identical either way. A non-interactive run — CI, a pipe, a script — is never
+prompted at all.
 
 `init` is a supply-chain check rather than a copy job: the template must ship an
-`astrocoda.manifest.json` (path → sha256) signed with the matching private key.
+`astrocoda.manifest.json` (path → sha256) signed with the seller's private key.
 The CLI verifies that signature, re-hashes every listed file, and copies only
 the signed files — so a tampered, re-signed, or manifest-free template is
 refused before anything is written.
@@ -565,7 +565,7 @@ astrocoda/
 │       ├── tasks.py                ARQ WorkerSettings + process_ai_pipeline_task
 │       └── schemas.py              ExtractedInsight, the LLM contract
 ├── bootstrap.py                    One command environment setup
-├── cli/                            The `astrocoda` CLI (signed-key license + scaffold)
+├── cli/                            The `astrocoda` CLI (signed-release scaffold)
 │   ├── astrocoda/                  package: login/init/up + Ed25519 verification
 │   └── pyproject.toml              console script `astrocoda`
 ├── docker-compose.yml              postgres, redis, qdrant, web, worker
