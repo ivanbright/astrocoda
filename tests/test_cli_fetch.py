@@ -10,6 +10,7 @@ onto a user's disk is only as trustworthy as its rejection logic.
 from __future__ import annotations
 
 import json
+import os
 import zipfile
 from pathlib import Path
 
@@ -231,11 +232,19 @@ class TestZipSlip:
         assert not (tmp_path.parent / "pwned.txt").exists()
 
     def test_absolute_member_is_refused(self, public_key, tmp_path):
+        """An absolute member is refused, on whichever platform is running.
+
+        The member name must be absolute *for this platform*: ``C:/...`` is a
+        perfectly legal relative filename on POSIX (the colon is just a
+        character), so a Windows-shaped path here would assert nothing on Linux.
+        """
+        member = "C:/Windows/Temp/pwned.txt" if os.name == "nt" else "/tmp/pwned.txt"
         archive = tmp_path / "abs.zip"
         with zipfile.ZipFile(archive, "w") as z:
-            z.writestr("C:/Windows/Temp/pwned.txt", "owned")
+            z.writestr(member, "owned")
         with pytest.raises(ReleaseFetchError, match="unsafe path"):
             fetch(public_key, archive, tmp_path / "cache")
+        assert not Path(member).exists()
 
 
 class TestLayeredIntegrity:
